@@ -241,7 +241,6 @@ When an exact duplicate is found, the script does not simply discard it. Instead
 | Custom X- fields | Merged into base, base wins on conflict |
 | Revised timestamp | Newer value kept |
 | Created timestamp | Earlier value kept (oldest origin date is the true one) |
-| Created timestamp | Earlier value kept (oldest origin date is the true one) |
 
 REV-aware base selection: if both contacts have a REV timestamp, the newer one becomes the primary contact. The older one is merged into it. If neither has REV, the first occurrence in the file is kept as base.
 
