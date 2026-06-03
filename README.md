@@ -1,227 +1,316 @@
 # vCard2text
 
-A simple Python script that converts vCard (.vcf) files into readable text format. Perfect for backing up contacts, viewing contact information without a contacts app, or converting contacts for easy reading and searching.
+A Python script that converts vCard (.vcf) files into clean, readable text. Works with exports from iPhone, Android, Google Contacts, Apple Contacts, Outlook, WhatsApp, and most other apps that export contacts as `.vcf`.
+
+---
 
 ## Features
 
-- ✅ Parse single or multiple vCard files
-- ✅ Support for vCard versions 2.1, 3.0, and 4.0
-- ✅ Extract all common contact fields (name, phone, email, address, etc.)
-- ✅ Handle multiple contacts per file
-- ✅ Wildcard pattern support (*.vcf)
-- ✅ Clean, readable text output
-- ✅ UTF-8 and Latin-1 encoding support
-- ✅ Track source file for each contact
+- Parse single or multiple vCard files
+- Support for vCard versions 2.1, 3.0, and 4.0
+- Extract all common contact fields (name, phone, email, address, birthday, and more)
+- Handle multiple contacts per file
+- Wildcard pattern support (`*.vcf`)
+- Detect and auto-merge exact duplicate contacts
+- Flag possible duplicate contacts for your review
+- Sort contacts A to Z
+- Clean, readable text output with a summary header
+- UTF-8 and Latin-1 encoding support
+- Quoted-Printable decoding (common in older Android/Nokia exports)
+- Track source file for each contact when merging multiple files
+- Never modifies your original `.vcf` files
+
+---
 
 ## Requirements
 
-- Python 3.6 or higher
+- Python 3.8 or higher
 - No external dependencies (uses only standard library)
+
+---
 
 ## Installation
 
-1. Download the `vcard2text.py` script
-2. Make it executable (optional on Unix/Linux/Mac):
-   ```bash
-   chmod +x vcard2text.py
-   ```
+1. Download `vCard2text.py`
+2. No pip install needed
 
-That's it! No pip install needed.
+Optionally make it executable on Unix/macOS:
+
+```bash
+chmod +x vCard2text.py
+```
+
+---
 
 ## Usage
 
-### Basic Usage
-
-Convert a single vCard file:
 ```bash
-python vcard2text.py contacts.vcf
+python vCard2text.py <file.vcf> [options]
 ```
-This creates `contacts.txt` in the same directory.
 
-### Multiple Files
+### Options
 
-Convert multiple specific files:
+| Option | Description |
+|---|---|
+| `<file.vcf>` | Input vCard file(s). Supports multiple files and wildcard patterns |
+| `-o <output.txt>` | Custom output filename (optional) |
+| `--sort` | Sort contacts A to Z (contacts with no name go last) |
+| `--stats` | Print summary statistics only, no output file written |
+| `--version` | Show version and exit |
+| `-h, --help` | Show help |
+
+### Examples
+
+Convert a single file (creates `contacts.txt`):
 ```bash
-python vcard2text.py file1.vcf file2.vcf file3.vcf
+python vCard2text.py contacts.vcf
 ```
-This creates `all_contacts.txt` with all contacts combined.
 
-### Wildcard Patterns
-
-Convert all .vcf files in the current directory:
+Sort alphabetically with a custom output name:
 ```bash
-python vcard2text.py "*.vcf"
+python vCard2text.py contacts.vcf --sort -o my_contacts.txt
 ```
 
-Convert files matching a pattern:
+Quick stats without writing a file:
 ```bash
-python vcard2text.py "backup_*.vcf"
+python vCard2text.py contacts.vcf --stats
 ```
 
-### Custom Output File
-
-Specify your own output filename:
+Merge multiple specific files (creates `iphone_google_work.txt`):
 ```bash
-python vcard2text.py "*.vcf" -o my_contacts.txt
+python vCard2text.py iphone.vcf google.vcf work.vcf
 ```
 
+Merge all `.vcf` files in a folder using wildcard:
 ```bash
-python vcard2text.py file1.vcf file2.vcf -o combined.txt
+python vCard2text.py "*.vcf" -o all_contacts.txt
 ```
 
-## Output Format
+Wildcard with a pattern:
+```bash
+python vCard2text.py "backup_*.vcf" -o backups.txt
+```
 
-The script creates a well-formatted text file with:
+Script and files in different folders:
+```bash
+python /tools/vCard2text.py /data/contacts.vcf -o /output/result.txt
+```
+
+> **Windows users:** Always wrap wildcard patterns in quotes: `"*.vcf"`
+
+---
+
+## Output
+
+### Terminal
+
+When you run the script, the terminal shows a summary of what happened:
 
 ```
-vCard Contacts Export
-Source Files: 2
-Total Contacts: 15
-============================================================
+vCard2text — 1 file to process
 
-Contact 1: (from contacts1.vcf)
-----------------------------------------
+  Reading contacts.vcf ... 10 contacts, 1 malformed
+
+  ────────────────────────────────────────────────────────────
+  Contacts    :  10 found, 1 malformed, 1 duplicate removed, 8 exported
+  vCard       :  2.1, 3.0
+  Skipped     :  3 fields across 2 contacts
+  Warnings    :  1 duplicate warning — review output file
+  Sorted      :  A to Z
+  Output      :  contacts.txt
+  ────────────────────────────────────────────────────────────
+```
+
+Lines only appear when relevant. A clean run shows only Contacts and Output.
+
+### File header
+
+Every output file starts with a summary:
+
+```
+Generated by vCard2text
+────────────────────────────────────────────────────────────
+  Exported          :  May 29, 2026, 14:32
+  Source            :  contacts.vcf
+  Contacts          :  10 found, 1 malformed, 1 duplicate removed, 8 exported
+  vCard versions    :  2.1, 3.0
+  Skipped fields    :  3 fields across 2 contacts
+  Duplicate warnings:  1 (review in warnings section)
+  Sorted            :  A to Z
+────────────────────────────────────────────────────────────
+```
+
+For multi-file runs, a `Files` row is also shown. Lines only appear when relevant — a clean file shows only Exported, Source, and Contacts.
+
+### Contact format
+
+```
+⭐ Contact 1:
+------------------------------------------------------------
 Name: John Smith
 Organization: Acme Corp
 Title: Software Engineer
-  Mobile: +1-555-0123
-  Work: +1-555-0199
-  Work/Internet: john.smith@acme.com
-Address: 123 Main St, San Francisco, CA, 94105, USA
+Phone: +1-555-0123 (Mobile)
+Phone: +1-555-0199 (Work)
+Email: john.smith@acme.com (Work/Internet)
+Address: 123 Main St, San Francisco, CA, 94105, USA (Work)
 Website: https://johnsmith.com
-
-Contact 2: (from contacts2.vcf)
-----------------------------------------
-Name: Jane Doe
-...
+Birthday: April 12, 1985
+Note: Met at conference 2023.
+Nickname: Johnny
+Anniversary: June 15, 2010
+Gender: M
+Categories: Work, VIP
+Revised: January 1, 2024, 12:00 UTC
+* Skype: john.smith.skype
 ```
 
-## Supported vCard Fields
+Custom or vendor-specific fields (e.g. `X-SKYPE`) appear with a `*` prefix, with the `X-` stripped.
 
-The converter extracts the following information:
+### Output file behaviour
 
-| Field | Description |
-|-------|-------------|
-| **Name** | Full name (FN) or constructed from name components (N) |
-| **Organization** | Company or organization name |
-| **Title** | Job title or position |
-| **Phone Numbers** | All phone numbers with types (Mobile, Work, Home, etc.) |
-| **Email Addresses** | All email addresses with types |
-| **Address** | Physical address |
-| **Website** | URL/website |
-| **Birthday** | Date of birth |
-| **Notes** | Additional notes or comments |
+- When no `-o` is given, the output name is derived from the input:
+  - Single file: `contacts.vcf` → `contacts.txt`
+  - Two files: `work.vcf + personal.vcf` → `work_personal.txt`
+  - Three or more files: `work.vcf + ...` → `work_and_2_more.txt`
+- If the output file already exists, it is never overwritten. The script saves as `contacts_1.txt`, `contacts_2.txt`, etc. automatically.
 
-## Examples
+### Warnings
 
-### Example 1: Export iPhone Contacts
+If a field value fails validation, it is reported at the bottom of that contact:
 
-1. Export your iPhone contacts as vCard
-2. Save the file (e.g., `iphone_contacts.vcf`)
-3. Run:
-   ```bash
-   python vcard2text.py iphone_contacts.vcf
-   ```
-
-### Example 2: Merge Multiple Contact Backups
-
-```bash
-python vcard2text.py backup_2023.vcf backup_2024.vcf -o all_backups.txt
+```
+[Skipped Fields]
+  ⚠ TEL: Too short: 123
+  ⚠ EMAIL: Invalid email: notavalidemail
+  ⚠ BDAY: Unrecognized format: NOTADATE
 ```
 
-### Example 3: Convert All Contact Files in a Directory
+Any conversion-level issues appear at the very bottom of the file:
 
-```bash
-python vcard2text.py "*.vcf" -o complete_contacts.txt
+```
+============================================================
+[Conversion Warnings]
+  ⚠ 1 malformed vCard block(s) skipped (no parseable content)
+  ⚠ 1 exact duplicate(s) removed (newer revision kept where available):
+      - John Smith → merged into Contact 3
+  ⚠ Duplicate warning: Contact 2 and Contact 4 (Jane Doe)
+============================================================
 ```
 
-## Command Line Options
+---
 
-| Option | Description |
-|--------|-------------|
-| `<file.vcf>` | Input vCard file(s). Can specify multiple files or use wildcards |
-| `-o <output.txt>` | Specify custom output filename (optional) |
+## Recognised Properties
 
-**Default behavior:**
-- Single file: Creates `filename.txt` (same name as input)
-- Multiple files: Creates `all_contacts.txt`
+| Property | Type | Description |
+|---|---|---|
+| FN / N | Single | Full name. Falls back to N (name components) if FN is missing |
+| ORG | Multiple | Company or organization name |
+| TITLE | Single | Job title or position |
+| TEL | Multiple | Phone numbers with type labels (Work, Home, Mobile, Cell, etc.) |
+| EMAIL | Multiple | Email addresses with type labels |
+| ADR | Multiple | Physical addresses with type labels |
+| URL | Multiple | Websites |
+| BDAY | Single | Birthday, formatted to human-readable (e.g. April 12, 1985) |
+| NOTE | Multiple | Notes or comments |
+| NICKNAME | Single | Nickname |
+| LABEL | Single | Pre-formatted mailing address (vCard 2.1/3.0) |
+| ANNIVERSARY | Single | Anniversary date, formatted same as birthday |
+| GENDER | Single | Gender |
+| CATEGORIES | Single | Comma-separated category list |
+| CREATED | Single | Record creation datetime |
+| REV | Single | Last modified datetime |
+| X-* (vendor extensions) | Multiple | App-specific fields like Skype, WhatsApp, etc. Shown with a `*` prefix, `X-` removed from the label |
 
-## Tips
+**TYPE parameter support:** Phone and email types are automatically detected and labelled (Work, Home, Mobile, Cell, Voice, Internet, Pref, etc.) for both vCard 2.1 and 3.0+ formats.
 
-- **Quotes around wildcards**: Use quotes around patterns like `"*.vcf"` to ensure proper expansion
-- **Multiple sources**: When processing multiple files, the output shows which file each contact came from
-- **Encoding issues**: The script automatically tries UTF-8 first, then falls back to Latin-1 encoding
-- **Empty fields**: Fields that are empty or not present in the vCard won't appear in the output
-- **Large files**: The script efficiently handles large vCard files with hundreds of contacts
+Binary fields (PHOTO, SOUND, KEY, LOGO) are silently skipped.
+
+---
+
+## Duplicate Handling
+
+**Exact duplicates** are merged and removed automatically. Two contacts are considered exact duplicates when all of these match: name, phone numbers, email addresses, physical addresses, organizations, and birthday. Metadata fields like REV are excluded from this comparison intentionally.
+
+When an exact duplicate is found, the script does not simply discard it. Instead, unique data from the duplicate is rescued and merged into the kept contact:
+
+| Field | Merge behaviour |
+|---|---|
+| Title, Nickname, Anniversary, Gender, Categories, Label, URLs | Taken from duplicate if missing in the base contact |
+| Notes | Appended with `[merged]` prefix so you know the source |
+| Custom X- fields | Merged into base, base wins on conflict |
+| Revised timestamp | Newer value kept |
+| Created timestamp | Earlier value kept (oldest origin date is the true one) |
+| Created timestamp | Earlier value kept (oldest origin date is the true one) |
+
+REV-aware base selection: if both contacts have a REV timestamp, the newer one becomes the primary contact. The older one is merged into it. If neither has REV, the first occurrence in the file is kept as base.
+
+**Fuzzy duplicates** — same name plus at least one shared phone or email — are flagged with a warning but kept. The script does not auto-remove these since two different people can share a name. You decide.
+
+---
+
+## What Gets Validated
+
+| Field | Validation |
+|---|---|
+| Phone | Minimum 5 digits |
+| Email | Must contain exactly one `@`, valid domain with `.` |
+| Birthday | Must be a recognisable date format |
+
+Fields that fail validation are skipped and reported. The rest of the contact is still exported normally.
+
+---
 
 ## Troubleshooting
 
 **"No files found matching '*.vcf'"**
-- Make sure you use quotes: `"*.vcf"`
-- Check that .vcf files exist in the current directory
-- Try specifying the full path: `"/path/to/files/*.vcf"`
+Use quotes around wildcard patterns: `"*.vcf"`. Without quotes, some shells expand the pattern before Python sees it. You can also specify the full path: `"/path/to/files/*.vcf"`
+
+**Output looks garbled (strange characters)**
+The script tries UTF-8 first, then Latin-1 automatically. If a file uses a different encoding entirely, it may need manual conversion first (e.g. with `iconv`).
+
+**Contact shows "Name: (Unknown)"**
+The vCard has an empty or missing FN and N field. The contact is still exported with whatever other fields are present.
+
+**Fewer contacts than expected**
+Check the `[Conversion Warnings]` section at the bottom of the output file. It lists how many blocks were malformed or removed as exact duplicates.
 
 **"Error: No .vcf files found"**
-- Verify the files have the `.vcf` extension
-- Check that you're in the correct directory
-- Use `ls *.vcf` (Unix/Mac) or `dir *.vcf` (Windows) to verify files exist
-
-**UnicodeDecodeError**
-- The script handles this automatically by trying different encodings
-- If you still see errors, the vCard file may be corrupted
-
-**"No contacts found in any of the files"**
-- Verify the file is a valid vCard format
-- Open the .vcf file in a text editor and check for `BEGIN:VCARD` and `END:VCARD` tags
-- Make sure the file isn't empty or corrupted
-
-## File Format Details
-
-vCard2text supports standard vCard format specifications:
-
-**Recognized vCard Properties:**
-- `FN` - Formatted name
-- `N` - Name components (Family, Given, Middle, Prefix, Suffix)
-- `TEL` - Telephone numbers (with TYPE parameter support)
-- `EMAIL` - Email addresses (with TYPE parameter support)
-- `ADR` - Postal addresses
-- `ORG` - Organization/company name
-- `TITLE` - Job title
-- `URL` - Website URLs
-- `BDAY` - Birthday
-- `NOTE` - Notes and comments
-
-**TYPE Parameter Support:**
-Phone and email types are automatically detected and labeled (e.g., Work, Home, Mobile, Cell, Voice, Internet, etc.)
-
-## License
-
-This script is provided as-is for free use. Feel free to modify and distribute.
-
-## Contributing
-
-Found a bug or want to add a feature? Contributions are welcome!
-
-## Common Use Cases
-
-- 📱 Backup iPhone/Android contacts in readable format
-- 📧 Convert email client contacts to text
-- 🔍 Search through contacts with grep/find
-- 📝 Create contact lists for documentation
-- 💾 Archive old contact databases
-- 🔄 Migrate between systems that don't share formats
-- 📊 Generate reports from contact data
-- 🔐 Keep offline backup of important contacts
-
-## Platform Compatibility
-
-- ✅ Windows
-- ✅ macOS
-- ✅ Linux
-- ✅ Any system with Python 3.6+
+Verify the files have the `.vcf` extension. Use `ls *.vcf` (Unix/macOS) or `dir *.vcf` (Windows) to confirm files exist in the current directory.
 
 ---
 
-**Program:** vCard2text  
-**Version:** 1.0  
+## Common Use Cases
+
+- 📱 Back up iPhone or Android contacts in readable format
+- 📧 Convert email client contacts to text
+- 🔍 Search contacts with `grep` or `find` without a contacts app
+- 📝 Create contact lists for documentation
+- 💾 Archive contacts before switching phones or apps
+- 🔄 Merge exports from multiple sources and clean up duplicates
+- 📊 Generate reports from contact data
+- 🔐 Keep an offline readable backup of important contacts
+
+---
+
+## Platform Compatibility
+
+Works on Windows, macOS, and Linux — anywhere Python 3.8+ runs.
+
+---
+
+## License
+
+Free to use, modify, and distribute.
+
+## Contributing
+
+Found a bug or want to add a feature? Contributions are welcome.
+
+See [CHANGELOG.md](CHANGELOG.md) for full version history.
+
+---
+
+**Program:** vCard2text
+**Version:** 2.0
 **Last Updated:** May 2026
