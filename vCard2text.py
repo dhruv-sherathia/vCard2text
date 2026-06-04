@@ -863,9 +863,12 @@ def convert(input_files, output_file, single_mode=False, sort_contacts=False, st
     # Conversion warnings at the bottom
     warn_lines = []
     if malformed:
-        warn_lines.append(f"  ⚠ {malformed} malformed vCard block(s) skipped (no parseable content)")
+        b = 'block' if malformed == 1 else 'blocks'
+        warn_lines.append(f"  ⚠ {malformed} malformed vCard {b} skipped (no parseable content)")
     if exact_removed:
-        warn_lines.append(f"  ⚠ {len(exact_removed)} exact duplicate(s) removed (newer revision kept where available):")
+        n_ex = len(exact_removed)
+        d = 'duplicate' if n_ex == 1 else 'duplicates'
+        warn_lines.append(f"  ⚠ {n_ex} exact {d} removed (newer revision kept where available):")
         for retained_idx, name in exact_removed:
             warn_lines.append(f"      - {name} → merged into Contact {retained_idx}")
     if fuzzy_warnings:
