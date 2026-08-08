@@ -13,9 +13,14 @@ A Python script that converts vCard (.vcf) files into clean, readable text. Work
 - Wildcard pattern support (`*.vcf`)
 - Detect and auto-merge exact duplicate contacts
 - Flag possible duplicate contacts for your review
-- Sort contacts A to Z
+- Sort contacts A to Z, by org, birthday, or creation date
+- Filter contacts by field, value, or presence
+- Select or exclude specific contacts by number, range, or name pattern
+- Interactive preview — TUI with live search and selective export
+- Merge multiple VCF files into one clean VCF
+- Split contacts into individual VCF files
 - Clean, readable text output with a summary header
-- UTF-8 and Latin-1 encoding support
+- Smart file encoding detection with optional manual override
 - Quoted-Printable decoding (common in older Android/Nokia exports)
 - Track source file for each contact when merging multiple files
 - Never modifies your original `.vcf` files
@@ -25,7 +30,11 @@ A Python script that converts vCard (.vcf) files into clean, readable text. Work
 ## Requirements
 
 - Python 3.8 or higher
-- No external dependencies (uses only standard library)
+- No required external dependencies (uses only standard library)
+
+**Optional enhancements** — install for a better experience, but the script works without them:
+- `pip install textual` — enables the full two-panel TUI for `--preview` (paged fallback is used if not installed)
+- `pip install charset-normalizer` — enables automatic detection of CJK encodings like Shift-JIS and GB2312 (sequence fallback is used if not installed)
 
 ---
 
@@ -53,9 +62,19 @@ python vCard2text.py <file.vcf> [options]
 | Option | Description |
 |---|---|
 | `<file.vcf>` | Input vCard file(s). Supports multiple files and wildcard patterns |
-| `-o <output.txt>` | Custom output filename (optional) |
-| `--sort` | Sort contacts A to Z (contacts with no name go last) |
+| `-o <output>` | Custom output filename or directory (optional) |
+| `--sort` | Sort contacts A to Z by name |
+| `--sort-by <field>` | Sort by field: `name`, `org`, `birthday`, `created` |
+| `--reverse` | Reverse sort order (requires `--sort` or `--sort-by`) |
+| `--limit <n>` | Export only the first N contacts after sorting and filtering |
+| `--filter <cond>` | Filter contacts — repeatable, all conditions must match (AND logic) |
+| `--select <expr>` | Keep only matched contacts (index, range, last-N, or name wildcard) |
+| `--exclude <expr>` | Remove matched contacts (same syntax as `--select`) |
 | `--stats` | Print summary statistics only, no output file written |
+| `--preview` | Interactive preview — textual TUI if installed, paged terminal fallback otherwise |
+| `--merge` | Merge all input VCFs into one clean `.vcf` file |
+| `--split` | Split contacts into individual `.vcf` files, one per contact |
+| `--encoding <codec>` | Force a specific file encoding (e.g. `shift-jis`, `gb2312`) |
 | `--version` | Show version and exit |
 | `-h, --help` | Show help |
 
@@ -71,24 +90,62 @@ Sort alphabetically with a custom output name:
 python vCard2text.py contacts.vcf --sort -o my_contacts.txt
 ```
 
+Sort by birthday, reverse order:
+```bash
+python vCard2text.py contacts.vcf --sort-by birthday --reverse
+```
+
+Export only the first 10 contacts after sorting:
+```bash
+python vCard2text.py contacts.vcf --sort --limit 10
+```
+
+Filter to contacts with a phone number at a specific org:
+```bash
+python vCard2text.py contacts.vcf --filter org=Acme --filter has=phone
+```
+
+Select contacts by number, range, or name wildcard:
+```bash
+python vCard2text.py contacts.vcf --select 1-10,15
+python vCard2text.py contacts.vcf --sort --select "John*"
+python vCard2text.py contacts.vcf --select last-20
+```
+
+Exclude specific contacts:
+```bash
+python vCard2text.py contacts.vcf --exclude 1,5,9
+```
+
+Preview contacts interactively:
+```bash
+python vCard2text.py contacts.vcf --preview
+python vCard2text.py contacts.vcf --sort --filter has=phone --preview
+```
+
 Quick stats without writing a file:
 ```bash
 python vCard2text.py contacts.vcf --stats
 ```
 
-Merge multiple specific files (creates `iphone_google_work.txt`):
+Merge multiple files into one clean VCF:
 ```bash
-python vCard2text.py iphone.vcf google.vcf work.vcf
+python vCard2text.py iphone.vcf google.vcf --merge -o all_contacts.vcf
+```
+
+Split into individual per-contact files:
+```bash
+python vCard2text.py contacts.vcf --split -o my_split/
+```
+
+Force a specific file encoding:
+```bash
+python vCard2text.py contacts.vcf --encoding shift-jis
 ```
 
 Merge all `.vcf` files in a folder using wildcard:
 ```bash
 python vCard2text.py "*.vcf" -o all_contacts.txt
-```
-
-Wildcard with a pattern:
-```bash
-python vCard2text.py "backup_*.vcf" -o backups.txt
 ```
 
 Script and files in different folders:
@@ -116,7 +173,7 @@ vCard2text — 1 file to process
   vCard       :  2.1, 3.0
   Skipped     :  3 fields across 2 contacts
   Warnings    :  1 duplicate warning — review output file
-  Sorted      :  A to Z
+  Sorted      :  name A → Z
   Output      :  contacts.txt
   ────────────────────────────────────────────────────────────
 ```
@@ -136,7 +193,7 @@ Generated by vCard2text
   vCard versions    :  2.1, 3.0
   Skipped fields    :  3 fields across 2 contacts
   Duplicate warnings:  1 (review in warnings section)
-  Sorted            :  A to Z
+  Sorted            :  name A → Z
 ────────────────────────────────────────────────────────────
 ```
 
@@ -175,6 +232,65 @@ Custom or vendor-specific fields (e.g. `X-SKYPE`) appear with a `*` prefix, with
   - Three or more files: `work.vcf + ...` → `work_and_2_more.txt`
 - If the output file already exists, it is never overwritten. The script saves as `contacts_1.txt`, `contacts_2.txt`, etc. automatically.
 
+### --merge output
+
+Produces a single clean `.vcf` file in vCard 3.0 format with all contacts deduplicated. Default output name:
+- Single input: `contacts_merged.vcf`
+- Two inputs: `work_personal.vcf`
+- Three or more: `work_and_2_more.vcf`
+
+### --split output
+
+Splits contacts into individual `.vcf` files written into a directory. Files are zero-padded and numbered: `contact_01.vcf`, `contact_02.vcf`, etc. Deduplication runs before splitting so the output set is clean. Default output directory: `split_<input_stem>/` (e.g. `split_contacts/`).
+
+### --preview
+
+Launches an interactive preview instead of writing a file. All sorting, filtering, and selection flags work exactly as in normal mode — contacts are processed first, then the preview opens on the result.
+
+If the `textual` library is installed (`pip install textual`), a full two-panel TUI opens:
+- Left panel: numbered contact list with `●` on selected and `?` on fuzzy duplicate pairs
+- Right panel: full contact detail, updates as you move through the list
+- `/` — live search by name, org, or phone
+- `space` — select / deselect contact
+- `a` / `n` — select all visible / clear all
+- `s` — cycle sort modes (original, name A→Z, name Z→A, org A→Z)
+- `e` — export selected contacts (or all visible if none selected) to a `.txt` file
+- `q` — quit
+
+If `textual` is not installed, a paged terminal fallback runs automatically — no error, no crash. 8 contacts per page; Enter/n = next page, `b` = back, `d` = detail view, `/` = search, `q` = quit.
+
+### Filtering
+
+Use `--filter` to export only contacts matching a condition. Repeatable — all conditions must match (AND logic):
+
+| Condition | Matches contacts where… |
+|---|---|
+| `name=John` | name contains "John" (case-insensitive) |
+| `org=Acme` | any organization contains "Acme" |
+| `category=Work` | categories contains "Work" |
+| `has=phone` | has at least one phone number |
+| `has=email` | has at least one email address |
+| `has=birthday` | has a birthday set |
+| `has=address` | has at least one address |
+| `has=note` | has at least one note |
+| `has=url` | has at least one URL |
+
+### Selection and exclusion
+
+Use `--select` to keep only specific contacts and `--exclude` to remove them. Both accept the same expression syntax:
+
+| Token | Meaning |
+|---|---|
+| `5` | Contact number 5 |
+| `1-10` | Contacts 1 through 10 (inclusive) |
+| `1-10,15,20-25` | Mixed ranges and individuals |
+| `last-10` | The last 10 contacts |
+| `John*` | All contacts whose name matches the wildcard |
+
+Token types can be mixed: `--select "1-5,John*,last-2"`
+
+Numbers refer to contacts in their final order after dedup and sort. `--select` and `--exclude` cannot be used together.
+
 ### Warnings
 
 If a field value fails validation, it is reported at the bottom of that contact:
@@ -191,8 +307,8 @@ Any conversion-level issues appear at the very bottom of the file:
 ```
 ============================================================
 [Conversion Warnings]
-  ⚠ 1 malformed vCard block(s) skipped (no parseable content)
-  ⚠ 1 exact duplicate(s) removed (newer revision kept where available):
+  ⚠ 1 malformed vCard block skipped (no parseable content)
+  ⚠ 1 exact duplicate removed (newer revision kept where available):
       - John Smith → merged into Contact 3
   ⚠ Duplicate warning: Contact 2 and Contact 4 (Jane Doe)
 ============================================================
@@ -266,7 +382,7 @@ Fields that fail validation are skipped and reported. The rest of the contact is
 Use quotes around wildcard patterns: `"*.vcf"`. Without quotes, some shells expand the pattern before Python sees it. You can also specify the full path: `"/path/to/files/*.vcf"`
 
 **Output looks garbled (strange characters)**
-The script tries UTF-8 first, then Latin-1 automatically. If a file uses a different encoding entirely, it may need manual conversion first (e.g. with `iconv`).
+The script automatically tries several encodings in sequence (UTF-8, UTF-16, Windows-1252, Latin-1). If your file uses a CJK encoding like Shift-JIS or GB2312, use `--encoding shift-jis` or `--encoding gb2312` to force the correct one. Installing the `charset-normalizer` package (`pip install charset-normalizer`) enables automatic detection of these encodings.
 
 **Contact shows "Name: (Unknown)"**
 The vCard has an empty or missing FN and N field. The contact is still exported with whatever other fields are present.
@@ -311,5 +427,5 @@ See [CHANGELOG.md](CHANGELOG.md) for full version history.
 ---
 
 **Program:** vCard2text
-**Version:** 2.0
-**Last Updated:** May 2026
+**Version:** 3.0
+**Last Updated:** June 2026

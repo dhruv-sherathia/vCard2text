@@ -1,6 +1,50 @@
 # Changelog
 
-## [2.0] — Current
+## [3.0] — Current
+
+### Added
+
+- `--preview` — interactive preview mode; runs full pipeline then opens preview instead of writing a file
+  - `run_textual_preview()` — two-panel Textual TUI; left list panel with `●` selected and `?` fuzzy markers; right detail panel; `/` live search; `s` cycles 4 sort modes; `space`/`a`/`n` selection; `e` exports to `preview_export.txt`; stats bar at bottom
+  - `run_paged_preview()` — pure stdlib paged fallback; 8 per page; Enter/n/b/d/`/`/q controls
+  - `run_preview()` — dispatcher; tries textual, catches `ImportError`, falls back silently
+  - `--preview` is mutually exclusive with `--merge`, `--split`, `--stats`
+- `--sort-by <field>` — sort contacts by `name`, `org`, `birthday`, or `created`; implies sorting, no need to also pass `--sort`
+- `--reverse` — reverse sort order; unknowns always sort last regardless of direction; requires `--sort` or `--sort-by`
+- `--limit <n>` — export only the first N contacts after all sorting and filtering
+- `--filter <cond>` — filter contacts by field condition; repeatable, all conditions must match (AND logic)
+  - Supported: `name=`, `org=`, `category=`, `has=phone/email/birthday/address/note/url`
+  - Uses `partition('=')` so values containing `=` are handled correctly
+  - All conditions validated before any filtering — fails fast with a clear message
+- `--select <expr>` — keep only matched contacts; supports integers, ranges (`1-10`), `last-N`, and fnmatch name wildcards (`John*`); token types mix freely
+- `--exclude <expr>` — remove matched contacts; same syntax as `--select`
+- `--select` and `--exclude` are mutually exclusive — clean error if both given
+- `--merge` flag — merge one or more VCF files into a single clean vCard 3.0 output file
+  - Full duplicate detection runs before writing — exact duplicates merged, fuzzy duplicates warned
+  - Smart default output name derived from input filenames
+- `--split` flag — split contacts into individual per-contact `.vcf` files
+  - Deduplication runs before splitting — output set is always clean
+  - Zero-padded numbered filenames: `contact_01.vcf`, `contact_02.vcf`, etc.
+  - Default output directory: `split_<input_stem>/`
+- `--merge` and `--split` are mutually exclusive — clean error if both given
+- `--encoding <codec>` flag — force a specific file encoding, bypassing auto-detection
+- `format_vcf()` — new VCF 3.0 formatter; reverse-parses phone/email presentation strings, uses raw ISO timestamps, restores `X-` prefix on custom fields
+- `read_file()` — smart encoding detection: charset-normalizer (optional) → `utf-8-sig` → `utf-8` → `utf-16` → `windows-1252` → `latin-1` → `latin-1+replace`
+- `apply_filters()` — filter helper with full validation before execution
+- `apply_selection()` — selection helper with clean range parsing via `re.match(r'^\d+-\d+$')`
+- `_load_contacts()` — shared file-reading helper used by `convert_merge()` and `convert_split()`
+- All `convert*` functions now propagate exit code 1 on failure
+- Sort, Filter, Select, Exclude, Limit rows added to file header and terminal summary
+
+### Changed
+
+- `--sort` label in summary changed from `A to Z` to `name A → Z` (or `name Z → A` with `--reverse`)
+- `-o` now accepts a directory path when used with `--split`
+- Help text updated with all new flags and examples
+
+---
+
+## [2.0]
 
 Complete rewrite and overhaul from v1.0 (original GitHub release).
 
