@@ -1,6 +1,130 @@
 # Changelog
 
-## [3.0] — Current
+## [4.0] — Current
+
+Renamed from vCard2text to vCardTra. Multi-format output and new field
+parsing. All planned v4 output formats are implemented; ready to tag and
+release.
+
+### Added
+
+- Project renamed: `vCard2text.py` → `vCardTra.py`; all internal references,
+  help text, and output headers updated
+- `--format <name>` flag — selects output format; default `text` (unchanged
+  behavior). Ten formats implemented: `text`, `json`, `csv`, `markdown`/`md`,
+  `html`, `ics`, `sql`, `sqlite`, `xml`, `pdf`, `docx`
+- **JSON** (`format_json()`, `contact_to_json_dict()`) — envelope structure
+  `{"meta": {...}, "contacts": [...]}`; `meta` mirrors the text/VCF header
+  rows (exported time, source(s), counts, versions, sort/filter/select state)
+  as native types and snake_case keys. Photos included as base64 by default
+- **CSV** (`format_csv()`) — wide table via stdlib `csv`; numbered columns
+  for multi-value fields (`Phone1`, `Phone2`, ... `Email1`, ...), column
+  count set by whichever contact in the run has the most values for that
+  field. Photos skipped (no sane CSV representation)
+- **Markdown** (`format_markdown()`) — single `.md` file, one `##` section
+  per contact, bullet-list fields; for Notion/Obsidian/GitHub wikis
+- **HTML** (`format_html()`) — single self-contained file, no external
+  CSS/JS, photos embedded inline as base64 `data:` URIs. Also the shared
+  rendering base for PDF output
+- **ICS** (`format_ics()`, `parse_display_date()`) — birthdays/anniversaries
+  as yearly-recurring `VEVENT`s. Reverse-parses `format_date()`'s
+  human-readable output back into (year, month, day) since raw values
+  aren't retained after parsing (see Design Decisions); only dates with
+  day-level precision become events — month/year-only birthdays are skipped
+  (reported to the terminal, not silently dropped). No-year dates use `1900`
+  as a conventional placeholder and say so in the event summary
+- **SQL** (`format_sql()`) — single wide `contacts` table, plain `.sql` text:
+  one `CREATE TABLE IF NOT EXISTS` + one `INSERT` per contact
+- **SQLite** (`write_sqlite()`) — same schema as SQL, written directly to a
+  `.db` file via stdlib `sqlite3` — no server, no extra dependency
+- **XML** (`format_xml()`) — same meta+contacts shape as JSON, built via
+  manual string assembly with `xml.sax.saxutils.escape` for safe escaping
+- **PDF** (`write_pdf()`) — renders the same HTML as `--format html` through
+  `weasyprint` (optional dependency, lazy-imported; clear install-hint error
+  if missing, checked upfront in `main()` before any file reading starts)
+- **DOCX** (`write_docx()`) — one heading + field list per contact via
+  `python-docx` (optional dependency, same lazy-import pattern), photo
+  inserted inline as an image when present
+- `--browser` flag — with `--preview`, opens a one-shot HTML snapshot in the
+  system default browser (`run_browser_preview()`, stdlib `webbrowser` +
+  `tempfile`) instead of the interactive terminal TUI/paged view. Reuses
+  `format_html()` — the same renderer `--format html` writes to disk
+- New fields parsed (previously silently dropped):
+  - `TZ` → `timezone`, `GEO` → `geo`, `ROLE` → `role` — single values, empty-guarded
+  - `IMPP` → `impp` list, multiple values, field-level deduped; scheme
+    (`xmpp:`, `skype:`, `sip:`, etc.) kept since it identifies the protocol
+  - `PHOTO` / `LOGO` — decoded from Base64 into `_photo_data`/`_logo_data`
+    (bytes) + `_photo_type`/`_logo_type`; malformed Base64 reported in
+    `[Skipped Fields]` instead of crashing
+  - `extract_media_type()` — extracts image type (JPEG, PNG, ...) from
+    PHOTO/LOGO field parameters for both v3.0+ `TYPE=` and v2.1 inline styles
+- `--no-photos` flag — skips PHOTO/LOGO Base64 decoding entirely; also
+  excludes them from JSON/HTML/XML/PDF/DOCX output
+- `DISPLAYABLE_FIELDS` gains `role`, `timezone`, `geo`, `impp`
+- PHOTO/LOGO removed from `SILENT_FIELDS` (now get real handling); SOUND/KEY
+  remain silent — no practical use in any current or planned output format
+- `FORMAT_DEPENDENCIES` — maps `pdf`/`docx` to their required package name;
+  `main()` checks upfront via `importlib.util.find_spec()` so a missing
+  optional dependency fails fast with an install hint, before any file I/O
+
+### Changed
+
+- `format_contact()` (text output) intentionally **unchanged** — new fields
+  (role, timezone, geo, impp, photo, logo) appear only in JSON/CSV/Markdown/
+  HTML/SQL/SQLite/XML/PDF/DOCX, not in text. Text output is byte-for-byte
+  identical to v3
+- `convert()`'s write step refactored into a format dispatcher — text
+  rendering extracted into `_render_text()` (behavior unchanged) so it's
+  called the same way as every other formatter, instead of being a special
+  case; `sqlite`/`pdf`/`docx` write the file themselves (binary / library-
+  owned save) rather than returning a string for `write_text()`
+
+### Fixed (v4 deep-audit pass)
+
+- `merge_contacts()` wasn't rescuing `role`/`timezone`/`geo`/`impp` from an
+  exact duplicate — real data loss on merge, confirmed with a live test
+  before fixing. Extended using the same pattern as the existing
+  title/nickname/anniversary/gender/categories/label rescue list. Photo/logo
+  deliberately left out — see Known limitations
+- `run_paged_preview()`: removed a dead `detail = False` variable (assigned,
+  never read) — pre-existing since v3
+- `run_textual_preview()`: removed a dead `fuzzy_idx` computation shadowed by
+  the actually-used `fuzzy_set` — pre-existing since v3
+- `--format json --preview` was silently accepted with `--format` completely
+  ignored — added to the existing mutual-exclusion checks alongside
+  `--merge`/`--split`, with a clear error message
+- **PDF crash on corrupted-but-plausible image data**: a photo with a valid
+  image header but a truncated/corrupted data stream could crash the
+  *entire* multi-contact PDF export via weasyprint, losing every contact,
+  not just the one with the bad photo — reproduced live before fixing.
+  `_validate_image_bytes()` (lazy Pillow import, already a weasyprint
+  dependency) now checks each photo/logo before rendering; a contact with
+  invalid image data gets rendered without that image rather than aborting
+  the whole document. DOCX already handled this safely per-image via its
+  existing try/except — only PDF needed the fix
+
+### Known limitations (documented, not fixed)
+
+- PHOTO/LOGO are decoded only when sent as inline `ENCODING=BASE64` data —
+  vCard 4.0's `PHOTO:data:image/jpeg;base64,...` data-URI style and external
+  `PHOTO:https://...` URI references are not yet extracted (silently ignored,
+  same as pre-v4 behavior)
+- `--no-photos` only wired into the normal `convert()` path; `--merge` and
+  `--split` still decode PHOTO/LOGO unconditionally (harmless — `format_vcf()`
+  doesn't use the decoded bytes — but wastes some time/memory on large files)
+- `merge_contacts()` doesn't rescue photo/logo from a removed duplicate —
+  deliberately, since "which photo wins" is a real design decision, not a
+  mechanical extension like the other rescued fields
+- CSV/SQL/SQLite/XML keep the D1 presentation-string format for phones/emails
+  (`"Phone: +1-555-0101 (Work)"`) rather than structured columns — same
+  deferred-to-v5 reasoning as JSON
+- `--filter has=...` was not extended to cover the new v4 fields (role,
+  timezone, geo, impp) — out of scope for this round, existing filter
+  behavior unchanged
+
+---
+
+## [3.0]
 
 ### Added
 

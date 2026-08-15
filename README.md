@@ -1,6 +1,8 @@
-# vCard2text
+# vCardTra
 
-A Python script that converts vCard (.vcf) files into clean, readable text. Works with exports from iPhone, Android, Google Contacts, Apple Contacts, Outlook, WhatsApp, and most other apps that export contacts as `.vcf`.
+A Python script that converts vCard (.vcf) files into text, JSON, CSV, Markdown, HTML, ICS, SQL, SQLite, XML, PDF, or DOCX. Works with exports from iPhone, Android, Google Contacts, Apple Contacts, Outlook, WhatsApp, and most other apps that export contacts as `.vcf`.
+
+> Renamed from vCard2text at v4.0 — same script, broader output support.
 
 ---
 
@@ -9,6 +11,7 @@ A Python script that converts vCard (.vcf) files into clean, readable text. Work
 - Parse single or multiple vCard files
 - Support for vCard versions 2.1, 3.0, and 4.0
 - Extract all common contact fields (name, phone, email, address, birthday, and more)
+- Output as text, JSON, CSV, Markdown, HTML, ICS (calendar), SQL, SQLite, XML, PDF, or DOCX
 - Handle multiple contacts per file
 - Wildcard pattern support (`*.vcf`)
 - Detect and auto-merge exact duplicate contacts
@@ -16,7 +19,7 @@ A Python script that converts vCard (.vcf) files into clean, readable text. Work
 - Sort contacts A to Z, by org, birthday, or creation date
 - Filter contacts by field, value, or presence
 - Select or exclude specific contacts by number, range, or name pattern
-- Interactive preview — TUI with live search and selective export
+- Interactive preview — TUI with live search and selective export, or a one-shot browser view
 - Merge multiple VCF files into one clean VCF
 - Split contacts into individual VCF files
 - Clean, readable text output with a summary header
@@ -35,18 +38,20 @@ A Python script that converts vCard (.vcf) files into clean, readable text. Work
 **Optional enhancements** — install for a better experience, but the script works without them:
 - `pip install textual` — enables the full two-panel TUI for `--preview` (paged fallback is used if not installed)
 - `pip install charset-normalizer` — enables automatic detection of CJK encodings like Shift-JIS and GB2312 (sequence fallback is used if not installed)
+- `pip install weasyprint` — required only for `--format pdf`. Not needed for anything else
+- `pip install python-docx` — required only for `--format docx`. Not needed for anything else
 
 ---
 
 ## Installation
 
-1. Download `vCard2text.py`
+1. Download `vCardTra.py`
 2. No pip install needed
 
 Optionally make it executable on Unix/macOS:
 
 ```bash
-chmod +x vCard2text.py
+chmod +x vCardTra.py
 ```
 
 ---
@@ -54,7 +59,7 @@ chmod +x vCard2text.py
 ## Usage
 
 ```bash
-python vCard2text.py <file.vcf> [options]
+python vCardTra.py <file.vcf> [options]
 ```
 
 ### Options
@@ -63,6 +68,8 @@ python vCard2text.py <file.vcf> [options]
 |---|---|
 | `<file.vcf>` | Input vCard file(s). Supports multiple files and wildcard patterns |
 | `-o <output>` | Custom output filename or directory (optional) |
+| `--format <name>` | Output format: `text` (default), `json`, `csv`, `markdown`/`md`, `html`, `ics`, `sql`, `sqlite`, `xml`, `pdf`, `docx` |
+| `--no-photos` | Skip decoding PHOTO/LOGO fields — faster on large files, omits them from formats that would embed them |
 | `--sort` | Sort contacts A to Z by name |
 | `--sort-by <field>` | Sort by field: `name`, `org`, `birthday`, `created` |
 | `--reverse` | Reverse sort order (requires `--sort` or `--sort-by`) |
@@ -72,6 +79,7 @@ python vCard2text.py <file.vcf> [options]
 | `--exclude <expr>` | Remove matched contacts (same syntax as `--select`) |
 | `--stats` | Print summary statistics only, no output file written |
 | `--preview` | Interactive preview — textual TUI if installed, paged terminal fallback otherwise |
+| `--browser` | With `--preview`: one-shot HTML view in your browser instead of the terminal UI |
 | `--merge` | Merge all input VCFs into one clean `.vcf` file |
 | `--split` | Split contacts into individual `.vcf` files, one per contact |
 | `--encoding <codec>` | Force a specific file encoding (e.g. `shift-jis`, `gb2312`) |
@@ -82,75 +90,106 @@ python vCard2text.py <file.vcf> [options]
 
 Convert a single file (creates `contacts.txt`):
 ```bash
-python vCard2text.py contacts.vcf
+python vCardTra.py contacts.vcf
+```
+
+Export as JSON instead of text:
+```bash
+python vCardTra.py contacts.vcf --format json
+```
+
+Export to a spreadsheet-ready CSV:
+```bash
+python vCardTra.py contacts.vcf --format csv
+```
+
+Export as a calendar of birthdays and anniversaries:
+```bash
+python vCardTra.py contacts.vcf --format ics
+```
+
+Generate a printable PDF or a Word document:
+```bash
+python vCardTra.py contacts.vcf --format pdf
+python vCardTra.py contacts.vcf --format docx
+```
+
+JSON without embedded photo data (faster, smaller file):
+```bash
+python vCardTra.py contacts.vcf --format json --no-photos
+```
+
+Preview contacts in your browser instead of the terminal:
+```bash
+python vCardTra.py contacts.vcf --preview --browser
 ```
 
 Sort alphabetically with a custom output name:
 ```bash
-python vCard2text.py contacts.vcf --sort -o my_contacts.txt
+python vCardTra.py contacts.vcf --sort -o my_contacts.txt
 ```
 
 Sort by birthday, reverse order:
 ```bash
-python vCard2text.py contacts.vcf --sort-by birthday --reverse
+python vCardTra.py contacts.vcf --sort-by birthday --reverse
 ```
 
 Export only the first 10 contacts after sorting:
 ```bash
-python vCard2text.py contacts.vcf --sort --limit 10
+python vCardTra.py contacts.vcf --sort --limit 10
 ```
 
 Filter to contacts with a phone number at a specific org:
 ```bash
-python vCard2text.py contacts.vcf --filter org=Acme --filter has=phone
+python vCardTra.py contacts.vcf --filter org=Acme --filter has=phone
 ```
 
 Select contacts by number, range, or name wildcard:
 ```bash
-python vCard2text.py contacts.vcf --select 1-10,15
-python vCard2text.py contacts.vcf --sort --select "John*"
-python vCard2text.py contacts.vcf --select last-20
+python vCardTra.py contacts.vcf --select 1-10,15
+python vCardTra.py contacts.vcf --sort --select "John*"
+python vCardTra.py contacts.vcf --select last-20
 ```
 
 Exclude specific contacts:
 ```bash
-python vCard2text.py contacts.vcf --exclude 1,5,9
+python vCardTra.py contacts.vcf --exclude 1,5,9
 ```
 
 Preview contacts interactively:
 ```bash
-python vCard2text.py contacts.vcf --preview
-python vCard2text.py contacts.vcf --sort --filter has=phone --preview
+python vCardTra.py contacts.vcf --preview
+python vCardTra.py contacts.vcf --sort --filter has=phone --preview
 ```
 
 Quick stats without writing a file:
 ```bash
-python vCard2text.py contacts.vcf --stats
+python vCardTra.py contacts.vcf --stats
 ```
 
 Merge multiple files into one clean VCF:
 ```bash
-python vCard2text.py iphone.vcf google.vcf --merge -o all_contacts.vcf
+python vCardTra.py iphone.vcf google.vcf --merge -o all_contacts.vcf
 ```
 
 Split into individual per-contact files:
 ```bash
-python vCard2text.py contacts.vcf --split -o my_split/
+python vCardTra.py contacts.vcf --split -o my_split/
 ```
 
 Force a specific file encoding:
 ```bash
-python vCard2text.py contacts.vcf --encoding shift-jis
+python vCardTra.py contacts.vcf --encoding shift-jis
 ```
 
 Merge all `.vcf` files in a folder using wildcard:
 ```bash
-python vCard2text.py "*.vcf" -o all_contacts.txt
+python vCardTra.py "*.vcf" -o all_contacts.txt
 ```
 
 Script and files in different folders:
 ```bash
-python /tools/vCard2text.py /data/contacts.vcf -o /output/result.txt
+python /tools/vCardTra.py /data/contacts.vcf -o /output/result.txt
 ```
 
 > **Windows users:** Always wrap wildcard patterns in quotes: `"*.vcf"`
@@ -164,7 +203,7 @@ python /tools/vCard2text.py /data/contacts.vcf -o /output/result.txt
 When you run the script, the terminal shows a summary of what happened:
 
 ```
-vCard2text — 1 file to process
+vCardTra — 1 file to process
 
   Reading contacts.vcf ... 10 contacts, 1 malformed
 
@@ -185,7 +224,7 @@ Lines only appear when relevant. A clean run shows only Contacts and Output.
 Every output file starts with a summary:
 
 ```
-Generated by vCard2text
+Generated by vCardTra
 ────────────────────────────────────────────────────────────
   Exported          :  May 29, 2026, 14:32
   Source            :  contacts.vcf
@@ -243,6 +282,85 @@ Produces a single clean `.vcf` file in vCard 3.0 format with all contacts dedupl
 
 Splits contacts into individual `.vcf` files written into a directory. Files are zero-padded and numbered: `contact_01.vcf`, `contact_02.vcf`, etc. Deduplication runs before splitting so the output set is clean. Default output directory: `split_<input_stem>/` (e.g. `split_contacts/`).
 
+### Output Formats
+
+Choose the output format with `--format`. All formats share the same parsing, deduplication, sorting, filtering, and selection — only the final write step changes. `--format` errors clearly and lists what's available if you typo a format name.
+
+#### json
+
+Writes one `.json` file for the whole run — a metadata envelope plus the contact array:
+
+```json
+{
+  "meta": {
+    "generated_by": "vCardTra",
+    "version": "4.0",
+    "exported": "August 09, 2026, 17:14",
+    "source": "contacts.vcf",
+    "contacts_found": 10,
+    "contacts_exported": 8,
+    "vcard_versions": ["2.1", "3.0"]
+  },
+  "contacts": [
+    {
+      "name": "John Smith",
+      "organizations": ["Acme Corporation"],
+      "phones": ["Phone: +1-555-0101 (Work)"],
+      "emails": ["Email: john@acme.com (Work)"],
+      "role": "Senior Engineer",
+      "timezone": "America/New_York",
+      "impp": ["xmpp:john@example.com"]
+    }
+  ]
+}
+```
+
+`meta` carries the same information as the text/VCF header rows (exported time, source, counts, versions, sort/filter/select state) as native types instead of display strings. Keys with empty or missing values are omitted from each contact for cleanliness.
+
+Phone and email values are presentation strings (`"Phone: +1-555-0101 (Work)"`), matching the internal format used everywhere else in the script — not yet structured `{"value":..., "type":...}` dicts. That refactor is planned for a future version (see Roadmap).
+
+If a contact has a decoded PHOTO or LOGO, it's included as base64:
+```json
+"photo": { "type": "JPEG", "data_base64": "/9j/4AAQ..." }
+```
+Use `--no-photos` to omit these and shrink the file.
+
+#### csv
+
+A wide table, one row per contact. Multi-value fields (phones, emails, addresses, URLs) get numbered columns — `Phone1`, `Phone2`, etc. — sized to whichever contact in the run has the most values for that field. Photos aren't included (no sane CSV representation).
+
+#### markdown / md
+
+A single `.md` file — one `##` heading per contact, fields as a bullet list. Designed to drop straight into Notion, Obsidian, or a GitHub wiki.
+
+#### html
+
+A single self-contained `.html` file — no external CSS/JS. Photos are embedded inline as base64 `data:` images, so the file works standalone (open it, email it, whatever) without needing the original `.vcf`. This is also the layout PDF export builds on.
+
+#### ics
+
+A calendar file of birthdays and anniversaries as yearly-recurring events — import into any calendar app. Only dates with a specific day can become an event; a birthday stored as just a year (or year+month, no day) can't anchor a calendar date and is skipped, with a note printed to the terminal. Birthdays with no year use a placeholder year internally (the event still repeats every year regardless) and say "(year unknown)" in the event title.
+
+#### sql
+
+A plain `.sql` text file: one `CREATE TABLE IF NOT EXISTS contacts` statement followed by one `INSERT` per contact. Importable into any SQL database.
+
+#### sqlite
+
+Same schema as `sql`, written directly to a `.db` file — no separate import step, no server. Query it immediately with any SQLite client.
+
+#### xml
+
+The same information as `json`, structured as XML instead.
+
+#### pdf
+
+*Requires `pip install weasyprint`.* Renders the same layout as `--format html`, converted to a PDF you can print or share. A corrupted embedded photo is safely skipped (with the rest of the document rendering normally) rather than failing the whole export.
+
+#### docx
+
+*Requires `pip install python-docx`.* A Word document — one heading and field list per contact, photo inserted inline as an image when present and valid.
+
 ### --preview
 
 Launches an interactive preview instead of writing a file. All sorting, filtering, and selection flags work exactly as in normal mode — contacts are processed first, then the preview opens on the result.
@@ -258,6 +376,8 @@ If the `textual` library is installed (`pip install textual`), a full two-panel 
 - `q` — quit
 
 If `textual` is not installed, a paged terminal fallback runs automatically — no error, no crash. 8 contacts per page; Enter/n = next page, `b` = back, `d` = detail view, `/` = search, `q` = quit.
+
+**`--preview --browser`** skips both terminal modes and opens a one-shot HTML snapshot in your system's default browser instead — the same layout as `--format html`. It's a quick look, not an interactive session: no live search/select/export inside the browser tab. `--browser` on its own (without `--preview`) is an error, since it's a display-mode switch for preview, not a standalone flag.
 
 ### Filtering
 
@@ -336,11 +456,16 @@ Any conversion-level issues appear at the very bottom of the file:
 | CATEGORIES | Single | Comma-separated category list |
 | CREATED | Single | Record creation datetime |
 | REV | Single | Last modified datetime |
+| TZ | Single | Time zone. Shown in every format except text/VCF |
+| GEO | Single | Geographic coordinates (`lat;lon`). Shown in every format except text/VCF; HTML also renders a Google Maps link |
+| ROLE | Single | Role or function (distinct from TITLE). Shown in every format except text/VCF |
+| IMPP | Multiple | Instant messaging handles, scheme kept (e.g. `xmpp:john@example.com`). Shown in every format except text/VCF |
+| PHOTO / LOGO | Single | Decoded from inline `ENCODING=BASE64` data into raw bytes; embedded in JSON/HTML/XML/PDF/DOCX (`--no-photos` to skip). Not available in CSV/SQL/SQLite. Data-URI and external-URI photo references are not yet extracted |
 | X-* (vendor extensions) | Multiple | App-specific fields like Skype, WhatsApp, etc. Shown with a `*` prefix, `X-` removed from the label |
 
 **TYPE parameter support:** Phone and email types are automatically detected and labelled (Work, Home, Mobile, Cell, Voice, Internet, Pref, etc.) for both vCard 2.1 and 3.0+ formats.
 
-Binary fields (PHOTO, SOUND, KEY, LOGO) are silently skipped.
+Binary fields with no practical use in any output format (SOUND, KEY) are silently skipped.
 
 ---
 
@@ -352,11 +477,12 @@ When an exact duplicate is found, the script does not simply discard it. Instead
 
 | Field | Merge behaviour |
 |---|---|
-| Title, Nickname, Anniversary, Gender, Categories, Label, URLs | Taken from duplicate if missing in the base contact |
+| Title, Nickname, Anniversary, Gender, Categories, Label, Role, Timezone, Geo, URLs, IMPP | Taken from duplicate if missing in the base contact (URLs and IMPP merge unique values in) |
 | Notes | Appended with `[merged]` prefix so you know the source |
 | Custom X- fields | Merged into base, base wins on conflict |
 | Revised timestamp | Newer value kept |
 | Created timestamp | Earlier value kept (oldest origin date is the true one) |
+| Photo, Logo | **Not** rescued — if the base contact has no photo but the removed duplicate did, it's lost. A deliberate gap, not an oversight — "which photo wins" is a real design decision |
 
 REV-aware base selection: if both contacts have a REV timestamp, the newer one becomes the primary contact. The older one is merged into it. If neither has REV, the first occurrence in the file is kept as base.
 
@@ -414,6 +540,12 @@ Works on Windows, macOS, and Linux — anywhere Python 3.8+ runs.
 
 ---
 
+## Roadmap
+
+All planned v4 output formats are implemented (see Output Formats above). Looking further ahead: a VCF-to-VCF version converter, a structured phones/emails data model (currently presentation strings — see the json/csv/sql sections above), and various utility flags (`--dedup-only`, `--validate`, `--dry-run`, `--diff`, and others) are planned for a future version. See [CHANGELOG.md](CHANGELOG.md) for progress.
+
+---
+
 ## License
 
 Free to use, modify, and distribute.
@@ -426,6 +558,6 @@ See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 ---
 
-**Program:** vCard2text
-**Version:** 3.0
-**Last Updated:** June 2026
+**Program:** vCardTra
+**Version:** 4.0
+**Last Updated:** August 2026
